@@ -35,6 +35,7 @@ grid_bounds = {
     'min_elev' : 5052,
     'max_elev' : 5141
     }
+
 #Import in necessary packages
 #on first run, need to run: pip install pykrige
 from pykrige.ok3d import OrdinaryKriging3D
@@ -116,20 +117,21 @@ for k in range(len(full_data)):
     #get our "z" (elevation) & convert to numpy array
     temp_z = temp.loc['elevation']
     temp_z = temp_z.to_numpy().astype(float)
+    #get the current timestamp (may be needed for plotting)
+    temp_time = temp.loc['time'][0]
     
     #pykrige doesn't understand NaN's so we need to replace them
     #use the median at this timestamp across all pods
     
     #first see if we have any Nan's
-    if any(pd.isna(temp_val) == 1):
+    if any(pd.isna(temp_val)):
     
         #Find which indices we need to replace (as an array)
         inds = np.asarray(np.where(np.isnan(temp_val)))
 
-        #Place column means in the indices. Align the arrays using take
-        temp_x[inds] = np.nanmedian(temp_x)
-        temp_y[inds] = np.nanmedian(temp_y)
-        temp_z[inds] = np.nanmedian(temp_z)
+        #Replace the NaNs with column medians
+        temp_val[inds] = np.nanmedian(temp_val)
+
     
     #now need to put this data in the format pykrige wants it in
     #data = np. array ([ x1, y1, z1, value1
@@ -145,20 +147,24 @@ for k in range(len(full_data)):
     #Solves for 3D kriged volume & variance
     k3d1, ss3d = ok3d.execute("grid", temp_x, temp_y, temp_z)
     
-    #Plot the image for this timestamp
-    plt.title('Ordinary Kriging')
-    plt.imshow(k3d1[:, :, 0], origin="lower")
+    #Make a plot for this timestamp
+    #Add plot title
+    plt.title('Ordinary Kriging:{}'.format(temp_time))
+    #Add the image of the landfill as the background
+
+    #Add the kriging (with transparency to show image behind)
+    plt.imshow(k3d1[:, :, 0], origin="lower",alpha = 0.5)
     
     #Create file name and append it to a list
     filename = f'{k}.png'
     filenames.append(filename)
 
-    #Save frame if desired - will clutter folder space
-    #plt.savefig(filename)
-    #plt.close()
+    #Save frame
+    plt.savefig(filename)
+    plt.close()
     
 #Build final gif
-with imageio.get_writer('Pykrige_V2_shortened_w_NANs.gif', mode='I') as writer:
+with imageio.get_writer('Pykrige_transparency.gif', mode='I') as writer:
     for filename in filenames:
         image = imageio.imread(filename)
         writer.append_data(image)
